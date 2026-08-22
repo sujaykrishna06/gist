@@ -220,10 +220,13 @@ def main():
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start_handler))
-    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
+    app.add_handler(MessageHandler(
+        (filters.TEXT | filters.CAPTION) & (~filters.COMMAND),
+        handle_message
+    ))
 
     logger.info("Bot is polling for messages. Press Ctrl+C to stop.")
-    app.run_polling(drop_pending_updates=True)
+    app.run_polling(drop_pending_updates=False, allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
     main()
