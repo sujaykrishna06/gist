@@ -106,15 +106,15 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = str(update.effective_chat.id) if update.effective_chat else ""
 
     reply_text = (
-        f"👋 Hi {user_name}! I am **Gist**, your automated Instagram Reel summarizer.\n\n"
+        f"👋 Hi {user_name}! I am Gist, your automated Instagram Reel summarizer.\n\n"
         f"Send or share any Instagram Reel link here, and I will transcribe it, summarize it using local AI, "
         f"log it to your Notion database, and reply with the summary!\n\n"
-        f"Your Chat ID: `{chat_id}`"
+        f"Your Chat ID: {chat_id}"
     )
-    await update.message.reply_text(reply_text, parse_mode="Markdown")
+    await update.message.reply_text(reply_text)
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message or not update.message.text:
+    if not update.message or not (update.message.text or update.message.caption):
         return
 
     chat_id = str(update.effective_chat.id)
@@ -122,7 +122,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.warning(f"Unauthorized chat ID access attempt: {chat_id}")
         return
 
-    text = update.message.text
+    text = update.message.text or update.message.caption or ""
     match = INSTAGRAM_REEL_REGEX.search(text)
     if not match:
         return
@@ -130,7 +130,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reel_url = match.group(0)
     logger.info(f"Processing Reel URL: {reel_url} for chat_id: {chat_id}")
 
-    status_msg = await update.message.reply_text("⏳ **Processing Instagram Reel...**\n`Downloading & extracting media...`", parse_mode="Markdown")
+    status_msg = await update.message.reply_text("⏳ Processing Instagram Reel...\nDownloading & extracting media...")
 
     loop = asyncio.get_running_loop()
 
@@ -171,7 +171,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             tags=tags
         )
 
-        # 5. Cleanup temporary files to save disk space
+        # 5. Cleanup temporary files
         cleanup_reel(reel_dir)
 
         return {
@@ -184,20 +184,29 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         result = await loop.run_in_executor(None, process_pipeline)
 
         reply_lines = [
-            f"🎬 *{result['title']}*",
+            f"🎬 {result['title']}",
             "",
             result['summary_text'],
             "",
-            f"🔗 *Link*: {reel_url}"
+            f"🔗 Link: {reel_url}"
         ]
         if result['notion_url']:
-            reply_lines.append(f"📖 *Notion*: {result['notion_url']}")
+            reply_lines.append(f"📖 Notion: {result['notion_url']}")
 
-        await status_msg.edit_text("\n".join(reply_lines), parse_mode="Markdown", disable_web_page_preview=True)
+        full_reply = "\n".join(reply_lines)
+
+        try:
+            await status_msg.edit_text(full_reply)
+        except Exception as edit_err:
+            logger.warning(f"Message edit failed ({edit_err}), sending new message fallback...")
+            await update.message.reply_text(full_reply)
 
     except Exception as e:
         logger.error(f"Pipeline error for {reel_url}: {e}")
-        await status_msg.edit_text(f"❌ **Failed to process Reel.**\n\nError: `{e}`", parse_mode="Markdown")
+        try:
+            await status_msg.edit_text(f"❌ Failed to process Reel.\n\nError: {e}")
+        except Exception:
+            await update.message.reply_text(f"❌ Failed to process Reel.\n\nError: {e}")
 
 def main():
     if not TELEGRAM_BOT_TOKEN:
@@ -208,7 +217,7 @@ def main():
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start_handler))
-    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
+    app.add_handler(MessageHandler(filters.TEXT | filters.CAPTION, handle_message))
 
     logger.info("Bot is polling for messages. Press Ctrl+C to stop.")
     app.run_polling()
