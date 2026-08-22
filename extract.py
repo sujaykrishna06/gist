@@ -44,7 +44,7 @@ def get_video_duration(video_path: Path) -> float:
         print(f"[warn] ffprobe failed to get duration: {e}", flush=True)
         return 0.0
 
-def extract_reel(url: str, num_frames: int = 5) -> Path:
+def extract_reel(url: str, num_frames: int = 3) -> Path:
     reel_id = sanitize_reel_id(url)
     output_dir = DATA_DIR / reel_id
     output_dir.mkdir(parents=True, exist_ok=True)
