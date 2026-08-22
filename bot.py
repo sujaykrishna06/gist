@@ -51,7 +51,7 @@ def summarize(context_text: str) -> dict:
         "stream": False,
         "format": "json",
         "options": {
-            "num_thread": 0
+            "num_thread": 2
         }
     }
     

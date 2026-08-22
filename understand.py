@@ -38,8 +38,8 @@ def transcribe_audio(audio_path: Path, output_path: Path, model_size: str = "tin
         return err_msg
 
     try:
-        # cpu_threads=0 automatically uses all available CPU cores
-        model = WhisperModel(model_size, device="cpu", compute_type="int8", cpu_threads=0)
+        # Cap to 2 threads so SSH/system always has CPU headroom
+        model = WhisperModel(model_size, device="cpu", compute_type="int8", cpu_threads=2)
         segments, info = model.transcribe(str(audio_path), beam_size=1)
 
         transcript_lines = []
@@ -71,7 +71,8 @@ def describe_frame_with_ollama(image_path: Path, model_name: str = "moondream") 
             "model": model_name,
             "prompt": "Describe what is clearly visible in this video frame concisely.",
             "images": [img_b64],
-            "stream": False
+            "stream": False,
+            "options": {"num_thread": 2}
         }
 
         data = json.dumps(payload).encode("utf-8")
