@@ -27,7 +27,7 @@ load_dotenv()
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 ALLOWED_TELEGRAM_CHAT_ID = os.environ.get("ALLOWED_TELEGRAM_CHAT_ID")
 OLLAMA_API_URL = os.environ.get("OLLAMA_API_URL", "http://localhost:11434/api/generate")
-SUMMARY_MODEL = os.environ.get("SUMMARY_MODEL", "llama3.2:3b")
+SUMMARY_MODEL = os.environ.get("SUMMARY_MODEL", "qwen2.5:1.5b")
 
 INSTAGRAM_REEL_REGEX = re.compile(
     r"https?://(?:www\.)?instagram\.com/reel/([A-Za-z0-9_-]+)",
@@ -49,7 +49,10 @@ def summarize(context_text: str) -> dict:
         "model": SUMMARY_MODEL,
         "prompt": f"{SYSTEM_PROMPT}\n\nREEL CONTEXT:\n{context_text}",
         "stream": False,
-        "format": "json"
+        "format": "json",
+        "options": {
+            "num_thread": 0
+        }
     }
     
     data = json.dumps(prompt_payload).encode("utf-8")

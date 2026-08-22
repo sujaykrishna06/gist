@@ -24,7 +24,7 @@ except ImportError:
 
 OLLAMA_API_URL = os.environ.get("OLLAMA_API_URL", "http://localhost:11434/api/generate")
 
-def transcribe_audio(audio_path: Path, output_path: Path, model_size: str = "base") -> str:
+def transcribe_audio(audio_path: Path, output_path: Path, model_size: str = "tiny") -> str:
     print(f"[understand] Transcribing audio with faster-whisper ({model_size})...", flush=True)
     if not audio_path.exists():
         print(f"[warn] Audio file not found at {audio_path}", flush=True)
@@ -38,8 +38,9 @@ def transcribe_audio(audio_path: Path, output_path: Path, model_size: str = "bas
         return err_msg
 
     try:
-        model = WhisperModel(model_size, device="cpu", compute_type="int8")
-        segments, info = model.transcribe(str(audio_path), beam_size=5)
+        # cpu_threads=0 automatically uses all available CPU cores
+        model = WhisperModel(model_size, device="cpu", compute_type="int8", cpu_threads=0)
+        segments, info = model.transcribe(str(audio_path), beam_size=1)
 
         transcript_lines = []
         for segment in segments:
