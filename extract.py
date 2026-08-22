@@ -3,7 +3,7 @@
 Standalone Reel Downloader and Extractor
 ----------------------------------------
 Input: Instagram Reel URL
-Output: Structured directory under reel-extract/data/<reel_id>/ containing:
+Output: Structured directory under data/<reel_id>/ containing:
   - video.mp4 (Downloaded reel video)
   - audio.wav (16kHz mono WAV for speech transcription)
   - frames/ (4-6 key frames saved as frame_01.jpg, frame_02.jpg...)
@@ -41,7 +41,7 @@ def get_video_duration(video_path: Path) -> float:
         res = subprocess.run(cmd, capture_output=True, text=True, check=True)
         return float(res.stdout.strip())
     except Exception as e:
-        print(f"[warn] ffprobe failed to get duration: {e}")
+        print(f"[warn] ffprobe failed to get duration: {e}", flush=True)
         return 0.0
 
 def extract_reel(url: str, num_frames: int = 5) -> Path:
@@ -51,8 +51,8 @@ def extract_reel(url: str, num_frames: int = 5) -> Path:
     frames_dir = output_dir / "frames"
     frames_dir.mkdir(exist_ok=True)
 
-    print(f"[extract] Processing Reel ID: {reel_id}")
-    print(f"[extract] Output Directory: {output_dir}")
+    print(f"[extract] Processing Reel ID: {reel_id}", flush=True)
+    print(f"[extract] Output Directory: {output_dir}", flush=True)
 
     # 1. Run yt-dlp to download video and metadata
     info_json_path = output_dir / "video.info.json"
@@ -65,7 +65,7 @@ def extract_reel(url: str, num_frames: int = 5) -> Path:
         url
     ]
 
-    print(f"[extract] Downloading video with yt-dlp...")
+    print(f"[extract] Downloading video with yt-dlp...", flush=True)
     try:
         res = subprocess.run(ytdlp_cmd, capture_output=True, text=True)
         if res.returncode != 0:
@@ -79,8 +79,8 @@ def extract_reel(url: str, num_frames: int = 5) -> Path:
         }
         with open(output_dir / "meta.json", "w", encoding="utf-8") as f:
             json.dump(error_meta, f, indent=2)
-        print(f"[error] Failed to download reel: {e}")
-        sys.exit(1)
+        print(f"[error] Failed to download reel: {e}", flush=True)
+        raise RuntimeError(f"Failed to download reel: {e}")
 
     # Locate downloaded video file and rename/remux to video.mp4
     downloaded_files = list(output_dir.glob("temp_video.*"))
@@ -99,7 +99,7 @@ def extract_reel(url: str, num_frames: int = 5) -> Path:
             final_video_path.unlink()
         video_file.rename(final_video_path)
     else:
-        print(f"[extract] Remuxing {video_file.name} to video.mp4 using ffmpeg...")
+        print(f"[extract] Remuxing {video_file.name} to video.mp4 using ffmpeg...", flush=True)
         remux_cmd = ["ffmpeg", "-i", str(video_file), "-c", "copy", str(final_video_path), "-y"]
         subprocess.run(remux_cmd, capture_output=True, check=True)
         video_file.unlink()
@@ -124,9 +124,9 @@ def extract_reel(url: str, num_frames: int = 5) -> Path:
             meta["title"] = info_data.get("title", "")
             meta["uploader"] = info_data.get("uploader", "")
             meta["upload_date"] = info_data.get("upload_date", "")
-            info_files[0].unlink() # Clean up raw info json
+            info_files[0].unlink()
         except Exception as e:
-            print(f"[warn] Failed to parse info JSON: {e}")
+            print(f"[warn] Failed to parse info JSON: {e}", flush=True)
 
     with open(output_dir / "caption.txt", "w", encoding="utf-8") as f:
         f.write(caption_text.strip())
@@ -136,7 +136,7 @@ def extract_reel(url: str, num_frames: int = 5) -> Path:
 
     # 2. Extract Audio (16kHz mono WAV) for Whisper
     audio_path = output_dir / "audio.wav"
-    print(f"[extract] Extracting audio track to audio.wav...")
+    print(f"[extract] Extracting audio track to audio.wav...", flush=True)
     audio_cmd = [
         "ffmpeg",
         "-i", str(final_video_path),
@@ -149,10 +149,10 @@ def extract_reel(url: str, num_frames: int = 5) -> Path:
     ]
     res_audio = subprocess.run(audio_cmd, capture_output=True, text=True)
     if res_audio.returncode != 0:
-        print(f"[warn] Audio extraction notice: {res_audio.stderr.strip()}")
+        print(f"[warn] Audio extraction notice: {res_audio.stderr.strip()}", flush=True)
 
-    # 3. Extract ~4-6 Key Frames
-    print(f"[extract] Extracting {num_frames} key frames...")
+    # 3. Extract Key Frames
+    print(f"[extract] Extracting {num_frames} key frames...", flush=True)
     duration = get_video_duration(final_video_path)
     
     if duration > 0:
@@ -171,11 +171,10 @@ def extract_reel(url: str, num_frames: int = 5) -> Path:
             ]
             subprocess.run(frame_cmd, capture_output=True)
     else:
-        # Fallback if duration calculation unavailable
         fallback_cmd = [
             "ffmpeg",
             "-i", str(final_video_path),
-            "-vf", f"fps=1/5",
+            "-vf", "fps=1/5",
             "-vframes", str(num_frames),
             str(frames_dir / "frame_%02d.jpg"),
             "-y"
@@ -183,9 +182,18 @@ def extract_reel(url: str, num_frames: int = 5) -> Path:
         subprocess.run(fallback_cmd, capture_output=True)
 
     extracted_frames = list(frames_dir.glob("*.jpg"))
-    print(f"[extract] Done! Extracted {len(extracted_frames)} frames.")
-    print(f"[extract] Reel files ready at: {output_dir}")
+    print(f"[extract] Done! Extracted {len(extracted_frames)} frames.", flush=True)
+    print(f"[extract] Reel files ready at: {output_dir}", flush=True)
     return output_dir
+
+def cleanup_reel(output_dir: Path):
+    """Clean up temporary media and frame files to save disk space."""
+    try:
+        if output_dir.exists():
+            shutil.rmtree(output_dir)
+            print(f"[cleanup] Deleted temporary directory: {output_dir}", flush=True)
+    except Exception as e:
+        print(f"[warn] Failed to clean up {output_dir}: {e}", flush=True)
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

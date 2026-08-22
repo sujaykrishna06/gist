@@ -2,7 +2,7 @@
 """
 Reel Comprehension Pipeline (Audio Transcription + Vision Frame Description)
 -----------------------------------------------------------------------------
-Input: Path to a reel data directory (e.g. reel-extract/data/<reel_id>/)
+Input: Path to a reel data directory (e.g. data/<reel_id>/)
 Outputs:
   - transcript.txt (Speech-to-text via faster-whisper)
   - frames_description.txt (Visual description of keyframes via Ollama vision model)
@@ -17,7 +17,6 @@ import urllib.request
 import urllib.parse
 from pathlib import Path
 
-# Add faster-whisper import inside function or top-level with error handling
 try:
     from faster_whisper import WhisperModel
 except ImportError:
@@ -26,20 +25,19 @@ except ImportError:
 OLLAMA_API_URL = os.environ.get("OLLAMA_API_URL", "http://localhost:11434/api/generate")
 
 def transcribe_audio(audio_path: Path, output_path: Path, model_size: str = "base") -> str:
-    print(f"[understand] Transcribing audio with faster-whisper ({model_size})...")
+    print(f"[understand] Transcribing audio with faster-whisper ({model_size})...", flush=True)
     if not audio_path.exists():
-        print(f"[warn] Audio file not found at {audio_path}")
+        print(f"[warn] Audio file not found at {audio_path}", flush=True)
         output_path.write_text("[No audio file found]", encoding="utf-8")
         return ""
 
     if WhisperModel is None:
         err_msg = "[error] faster-whisper library is not installed."
-        print(err_msg)
+        print(err_msg, flush=True)
         output_path.write_text(err_msg, encoding="utf-8")
         return err_msg
 
     try:
-        # Load model on CPU with int8 quantization for low resource usage
         model = WhisperModel(model_size, device="cpu", compute_type="int8")
         segments, info = model.transcribe(str(audio_path), beam_size=5)
 
@@ -52,11 +50,11 @@ def transcribe_audio(audio_path: Path, output_path: Path, model_size: str = "bas
             full_transcript = "[No speech detected in audio track]"
 
         output_path.write_text(full_transcript, encoding="utf-8")
-        print(f"[understand] Transcription complete. Length: {len(full_transcript)} chars.")
+        print(f"[understand] Transcription complete. Length: {len(full_transcript)} chars.", flush=True)
         return full_transcript
     except Exception as e:
         err_msg = f"[Error during transcription: {e}]"
-        print(f"[error] Transcription failed: {e}")
+        print(f"[error] Transcription failed: {e}", flush=True)
         output_path.write_text(err_msg, encoding="utf-8")
         return err_msg
 
@@ -82,17 +80,15 @@ def describe_frame_with_ollama(image_path: Path, model_name: str = "moondream") 
             res_json = json.loads(resp.read().decode("utf-8"))
             raw_text = res_json.get("response", "").strip()
 
-            # Sanitize repetitive text loops
             if len(raw_text) > 300:
                 raw_text = raw_text[:300] + "..."
             return raw_text
     except Exception as e:
-        print(f"[error] Ollama vision API error for {image_path.name}: {e}")
+        print(f"[error] Ollama vision API error for {image_path.name}: {e}", flush=True)
         return f"[Failed to analyze frame: {e}]"
 
-
 def describe_all_frames(frames_dir: Path, output_path: Path, model_name: str = "moondream") -> str:
-    print(f"[understand] Analyzing key frames using Ollama vision model ({model_name})...")
+    print(f"[understand] Analyzing key frames using Ollama vision model ({model_name})...", flush=True)
     if not frames_dir.exists():
         output_path.write_text("[No frames directory found]", encoding="utf-8")
         return ""
@@ -104,13 +100,13 @@ def describe_all_frames(frames_dir: Path, output_path: Path, model_name: str = "
 
     descriptions = []
     for idx, frame_path in enumerate(frame_files, start=1):
-        print(f"[understand] Describing frame {idx}/{len(frame_files)} ({frame_path.name})...")
+        print(f"[understand] Describing frame {idx}/{len(frame_files)} ({frame_path.name})...", flush=True)
         desc = describe_frame_with_ollama(frame_path, model_name=model_name)
         descriptions.append(f"Frame {idx} ({frame_path.name}): {desc}")
 
     full_descriptions = "\n".join(descriptions)
     output_path.write_text(full_descriptions, encoding="utf-8")
-    print(f"[understand] Frame description complete.")
+    print(f"[understand] Frame description complete.", flush=True)
     return full_descriptions
 
 def bundle_combined_context(reel_dir: Path) -> Path:
@@ -158,7 +154,7 @@ VISUAL FRAME DESCRIPTIONS (KEYFRAMES)
 ==================================================
 """
     combined_path.write_text(context_str, encoding="utf-8")
-    print(f"[understand] Combined context saved to {combined_path}")
+    print(f"[understand] Combined context saved to {combined_path}", flush=True)
     return combined_path
 
 def process_reel_understanding(reel_dir: Path, vision_model: str = "moondream") -> Path:

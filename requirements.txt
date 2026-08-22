@@ -1,0 +1,5 @@
+python-telegram-bot>=20.0
+yt-dlp>=2026.8.19
+Pillow>=10.0.0
+faster-whisper
+python-dotenv

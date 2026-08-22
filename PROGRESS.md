@@ -1,75 +1,47 @@
-# Gist — WhatsApp → Instagram Reel Summarizer
+# Gist — Instagram Reel Summarizer (Telegram Bot)
 
-**Gist** is a fully free, self-hosted automated pipeline that transforms Instagram Reels sent via WhatsApp into structured, AI-generated summaries. It extracts audio transcriptions, visual frame descriptions, and post captions using local open-source models, indexes them into embedded vector memory (ChromaDB), logs them to Notion, and replies directly back on WhatsApp.
-
----
-
-## 🏗 Project Stack & Directory Structure
-
-- **`wa-reel-bridge/`**: Node.js service using `@whiskeysockets/baileys` to listen for `instagram.com` reel links on WhatsApp, forward them to `http://localhost:5050/webhook`, and expose an Express `POST /reply` server on port `3000` to send WhatsApp messages back.
-- **`reel-extract/`**: Python pipeline utilizing `yt-dlp` for video/caption downloads, `ffmpeg` for audio/frame extraction, `faster-whisper` for speech-to-text, and `Ollama` vision model (`moondream`) for frame descriptions.
-- **`server/`**: FastAPI webhook orchestration server (`server/app.py`) listening on `http://localhost:5050`, running direct Ollama LLM summarization (`llama3.2:3b`), embedded ChromaDB indexing (`./chroma_data`), Notion database logging (`server/notion_writer.py`), and WhatsApp reply POSTing.
-- **`chroma_data/`**: In-process, embedded ChromaDB directory storing vector memories in the `odysseus_memories` collection without external server dependencies.
+**Gist** is a fully free, self-hosted automated pipeline that transforms Instagram Reels sent via Telegram into structured, AI-generated summaries. It extracts audio transcriptions, visual frame descriptions, and post captions using local open-source models, logs them to Notion, and replies directly back in Telegram.
 
 ---
 
-## 📋 Build-Order Checklist
+## 🏗 Simplified Python Architecture
 
-- [x] **Step 0: Initial Setup & Project Naming**
-  - Aliased project to `gist`.
-  - Reorganized `wa-reel-bridge` into its own directory.
-  - Audited system dependencies (`yt-dlp`, `ffmpeg`, `ollama`, `python`).
-- [x] **Step 1: Sanity-Check wa-reel-bridge**
-  - Verified `npm start`, QR code authentication, and WhatsApp link detection.
-  - Configured payload forwarding to `http://localhost:5050/webhook`.
-- [x] **Step 2: Standalone Download/Extraction Script (`reel-extract/`)**
-  - Built `reel-extract/extract.py` with `yt-dlp` (v2026.08.19) and `ffmpeg`.
-  - Downloads `video.mp4`, 16kHz mono `audio.wav`, 5 keyframes (`frames/frame_01.jpg`..`frame_05.jpg`), `caption.txt`, and `meta.json`.
-- [x] **Step 3: Transcription + Vision Description (`reel-extract/understand.py`)**
-  - Speech-to-text via `faster-whisper` -> `transcript.txt`.
-  - Frame visual analysis via Ollama `moondream` -> `frames_description.txt`.
-  - Bundled context into `combined_context.txt`.
-- [x] **Step 4: Direct Ollama & Embedded ChromaDB Setup**
-  - Fully removed Odysseus containers.
-  - Direct HTTP LLM summarization via Ollama (`llama3.2:3b`) returning structured JSON (`title`, `summary`, `tags`).
-  - Embedded ChromaDB storage via `chromadb.PersistentClient(path="./chroma_data")` storing vectors & metadata.
-- [x] **Step 5: Notion Integration & WhatsApp Reply Loop**
-  - Built `server/notion_writer.py` posting to Notion REST API (`Title`, `Summary`, `Caption`, `Link`, `Date`, `Tags`) with graceful fallback if unconfigured.
-  - Added Express `POST /reply` endpoint to `wa-reel-bridge/index.js` using `sock.sendMessage(chatJid, { text })`.
-  - Added automated WhatsApp reply POST in `server/app.py`.
+- **`bot.py`**: Single Python Telegram Bot & Pipeline Orchestrator using `python-telegram-bot`. Listens for `instagram.com/reel/` links, triggers extraction & comprehension, sends summaries back to Telegram, and logs to Notion.
+- **`extract.py`**: Media & frame downloader using `yt-dlp` and `ffmpeg`. Automatically cleans up temp video/audio/frame files post-summarization.
+- **`understand.py`**: Speech-to-text via `faster-whisper` and frame visual analysis via Ollama vision model (`moondream`).
+- **`notion_writer.py`**: Notion REST API integration for logging Reel title, summary, caption, link, date, and tags to your Notion database.
 
 ---
 
-## 🔑 Config & Environment Variables
+## 🔑 Environment Variables (`.env`)
 
-- `wa-reel-bridge/.env`:
-  - `WEBHOOK_URL=http://localhost:5050/webhook`
-  - `PORT=3000`
-  - `ONLY_FROM_ME=true`
-  - `ALLOWED_CHAT_JID=148399793934420@lid`
-- `server/.env`:
-  - `NOTION_TOKEN` (Notion internal integration token)
-  - `NOTION_DATABASE_ID` (Notion database ID)
-  - `WA_BRIDGE_REPLY_URL=http://localhost:3000/reply`
-  - `SUMMARY_MODEL=llama3.2:3b`
-  - `OLLAMA_API_URL=http://localhost:11434/api/generate`
+```env
+# Telegram Bot
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token
+ALLOWED_TELEGRAM_CHAT_ID=your_telegram_chat_id
+
+# Notion Integration
+NOTION_TOKEN=your_notion_token
+NOTION_DATABASE_ID=your_notion_database_id
+
+# Local Ollama
+SUMMARY_MODEL=llama3.2:3b
+OLLAMA_API_URL=http://localhost:11434/api/generate
+```
 
 ---
 
-## 🚀 How to Run the Complete System
+## 🚀 How to Run 24/7 on Ubuntu Server
 
-1. **Start Gist Webhook Server**:
-   ```powershell
-   python server/app.py
+1. **Install Dependencies**:
+   ```bash
+   pip install -r requirements.txt
    ```
-2. **Start WhatsApp Bridge**:
-   ```powershell
-   cd wa-reel-bridge
-   npm start
+
+2. **Start Telegram Bot with PM2**:
+   ```bash
+   pm2 start "venv/bin/python bot.py" --name "gist-bot"
+   pm2 save
    ```
-3. Send any Instagram Reel link to yourself on WhatsApp! Gist automatically downloads, transcribes, describes, summarizes, stores in embedded ChromaDB, logs to Notion, and replies to your WhatsApp chat with the summary!
 
-
-
-
-
+3. Share any Instagram Reel link directly to your bot on Telegram!

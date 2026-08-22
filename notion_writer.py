@@ -3,19 +3,19 @@
 Notion Integration Module for Gist
 ----------------------------------
 Posts structured Reel summaries to a user's Notion database via Notion REST API.
-Properties created:
+Properties required in Notion Database:
   - Title (title)
   - Summary (rich_text)
   - Caption (rich_text)
   - Link (url)
   - Date (date)
   - Tags (multi_select)
-Fails gracefully without crashing if credentials are absent or API returns error.
 """
 
 import os
 import json
 import urllib.request
+import urllib.error
 from typing import Optional, List
 
 NOTION_API_URL = "https://api.notion.com/v1/pages"
@@ -36,7 +36,6 @@ def post_to_notion(
         print("[warn] NOTION_TOKEN or NOTION_DATABASE_ID not configured. Skipping Notion log.", flush=True)
         return None
 
-    # Sanitize inputs for Notion payload limits
     clean_title = (title or "Untitled Reel Summary")[:2000]
     clean_summary = (summary or "")[:2000]
     clean_caption = (caption or "")[:2000]
@@ -81,6 +80,21 @@ def post_to_notion(
             notion_page_url = res_json.get("url")
             print(f"[notion] Successfully created Notion page: {notion_page_url}", flush=True)
             return notion_page_url
-    except Exception as e:
-        print(f"[warn] Failed to create Notion page: {e}", flush=True)
+    except urllib.error.HTTPError as e:
+        err_detail = ""
+        try:
+            err_detail = e.read().decode("utf-8")
+        except Exception:
+            pass
+        print(f"[error] Notion API HTTP Error {e.code}: {e.reason}. Detail: {err_detail}", flush=True)
         return None
+    except Exception as e:
+        print(f"[error] Notion API request failed: {e}", flush=True)
+        return None
+
+if __name__ == "__main__":
+    from dotenv import load_dotenv
+    load_dotenv()
+    print("Testing Notion credentials...")
+    print("NOTION_TOKEN loaded:", bool(os.environ.get("NOTION_TOKEN")))
+    print("NOTION_DATABASE_ID loaded:", bool(os.environ.get("NOTION_DATABASE_ID")))
