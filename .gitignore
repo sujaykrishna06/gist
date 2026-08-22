@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Environment and secrets
+.env
+auth_state/
+*.key
+*.key.pub
+
+# Extracted media & temp data
+reel-extract/data/
+data/
+scratch/
+*.mp4
+*.wav
+*.jpg
+*.png
+
+# OS & IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

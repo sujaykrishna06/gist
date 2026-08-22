@@ -1,0 +1,17 @@
+{
+  "name": "wa-reel-bridge",
+  "version": "0.1.0",
+  "description": "Listens on a personal WhatsApp account for Instagram reel links and forwards them to a webhook (e.g. an Odysseus agent endpoint).",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.9",
+    "dotenv": "^16.4.5",
+    "express": "^5.2.1",
+    "pino": "^9.4.0",
+    "qrcode-terminal": "^0.12.0"
+  }
+}
