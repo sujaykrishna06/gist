@@ -62,21 +62,21 @@ def describe_frame_with_ollama(image_path: Path, model_name: str = "moondream") 
     if not image_path.exists():
         return "[Frame image not found]"
 
-    with open(image_path, "rb") as f:
-        img_b64 = base64.b64encode(f.read()).decode("utf-8")
-
-    payload = {
-        "model": model_name,
-        "prompt": "Describe what is clearly visible in this video frame concisely.",
-        "images": [img_b64],
-        "stream": False
-    }
-
-    data = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(OLLAMA_API_URL, data=data, headers={"Content-Type": "application/json"})
-
     try:
-        with urllib.request.urlopen(req, timeout=120) as resp:
+        with open(image_path, "rb") as f:
+            img_b64 = base64.b64encode(f.read()).decode("utf-8")
+
+        payload = {
+            "model": model_name,
+            "prompt": "Describe what is clearly visible in this video frame concisely.",
+            "images": [img_b64],
+            "stream": False
+        }
+
+        data = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(OLLAMA_API_URL, data=data, headers={"Content-Type": "application/json"})
+
+        with urllib.request.urlopen(req, timeout=25) as resp:
             res_json = json.loads(resp.read().decode("utf-8"))
             raw_text = res_json.get("response", "").strip()
 
@@ -84,11 +84,11 @@ def describe_frame_with_ollama(image_path: Path, model_name: str = "moondream") 
                 raw_text = raw_text[:300] + "..."
             return raw_text
     except Exception as e:
-        print(f"[error] Ollama vision API error for {image_path.name}: {e}", flush=True)
-        return f"[Failed to analyze frame: {e}]"
+        print(f"[warn] Ollama vision notice for {image_path.name}: {e}", flush=True)
+        return f"[Visual frame description unavailable]"
 
 def describe_all_frames(frames_dir: Path, output_path: Path, model_name: str = "moondream") -> str:
-    print(f"[understand] Analyzing key frames using Ollama vision model ({model_name})...", flush=True)
+    print(f"[understand] Analyzing key frame using Ollama vision model ({model_name})...", flush=True)
     if not frames_dir.exists():
         output_path.write_text("[No frames directory found]", encoding="utf-8")
         return ""
@@ -98,13 +98,13 @@ def describe_all_frames(frames_dir: Path, output_path: Path, model_name: str = "
         output_path.write_text("[No frame images found]", encoding="utf-8")
         return ""
 
-    descriptions = []
-    for idx, frame_path in enumerate(frame_files, start=1):
-        print(f"[understand] Describing frame {idx}/{len(frame_files)} ({frame_path.name})...", flush=True)
-        desc = describe_frame_with_ollama(frame_path, model_name=model_name)
-        descriptions.append(f"Frame {idx} ({frame_path.name}): {desc}")
+    # Pick single representative middle keyframe for fast CPU processing
+    mid_idx = len(frame_files) // 2
+    frame_path = frame_files[mid_idx]
+    
+    desc = describe_frame_with_ollama(frame_path, model_name=model_name)
+    full_descriptions = f"Keyframe ({frame_path.name}): {desc}"
 
-    full_descriptions = "\n".join(descriptions)
     output_path.write_text(full_descriptions, encoding="utf-8")
     print(f"[understand] Frame description complete.", flush=True)
     return full_descriptions
